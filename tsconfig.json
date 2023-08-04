@@ -15,6 +15,7 @@
     "outDir": "dist/",
     "baseUrl": "src/",
     "allowJs": true,
+    "jsx": "react",
     "paths": {
       "/*": ["*"],
       "@ns": ["../NetscriptDefinitions.d.ts"],
