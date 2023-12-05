@@ -16,5 +16,5 @@ COPY . /app/
 # Expose the port the filesync will listen on
 EXPOSE 12525
 
-# Run filesync watch when the container starts 
+# Run filesync watch when the container starts
 CMD npm run watch
