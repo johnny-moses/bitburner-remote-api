@@ -1,32 +1,30 @@
+// Description: This script will attempt to hack all servers in the game by using the 'worm' strategy.
+// The worm strategy is to first nuke a server, then deploy a script that will automatically launch grow/weaken/hack scripts as needed.
+// Copies jack.js and supporting scripts to all servers that are connected to the target server, then executes jack.js on each server.
+// Usage: run worm.js [target] yay
+
 /** @param {NS} ns **/
 export async function main(ns) {
     const target = ns.args[0]; // Get the target server from the arguments
-    const maxActiveScripts = ns.args[1]; // Get the max number of active scripts allowed
-
     if (!target) {
         ns.tprint("Error: No target specified.");
         return;
     }
 
-    if (!target || isNaN(maxActiveScripts)) {
-        ns.tprint("Error: Invalid arguments. Usage: run worm.js [target] [maxActiveScripts]");
-        return;
-    }
-
-    const mainScript = 'jackv4.js';
-    const supportingScripts = ['hack.js', 'grow.js', 'weaken.js'];
+    const mainScript = 'wormy/simple/jack.js';
+    const supportingScripts = ['wormy/simple/scripts/hack.js', 'wormy/simple/scripts/grow.js', 'wormy/simple/scripts/weaken.js'];
     // Add this to the filter if you want to exclude servers you've already purchased as well as the home server and moneyless servers
     // const purchasedServers = ns.getPurchasedServers();
     // && server !== 'avmnite-02h' && server !== 'CSEC' && server !== 'I.I.I.I' && !purchasedServers.includes(server)
-    const targetServers = getAllServers(ns).filter(server => server !== 'home');
-
+    // ).filter(server => server !== 'home'
+    const targetServers = getAllServers(ns);
 
     for (const server of targetServers) {
         if (!ns.hasRootAccess(server) && canNuke(ns, server)) {
             tryNuke(ns, server);
         }
         if (ns.hasRootAccess(server) && canHack(ns, server)) {
-            const success = await deployScripts(ns, server, [mainScript, ...supportingScripts], mainScript, target, parseInt(maxActiveScripts));
+            const success = await deployScripts(ns, server, [mainScript, ...supportingScripts], mainScript, target);
             if (!success) {
                 ns.tprint(`Failed to deploy on server: ${server}`);
             }
@@ -78,22 +76,14 @@ function tryNuke(ns, server) {
     }
 }
 
-async function deployScripts(ns, server, scripts, mainScript, target, maxActiveScripts) {
+async function deployScripts(ns, server, scripts, mainScript, target) {
     for (const script of scripts) {
         const success = await ns.scp(script, server);
         if (!success) {
-            ns.tprint(`Failed to copy ${script} to ${server}`);
-            return false;
+            return false; // If copying fails, return false
         }
     }
-
-    if (typeof maxActiveScripts !== 'number') {
-        ns.tprint(`Error: maxActiveScripts is not a number. It is: ${typeof maxActiveScripts}`);
-        return false;
-    }
-
-    ns.tprint(`Executing ${mainScript} on ${server} with args: ${target}, ${maxActiveScripts}`);
-    const pid = ns.exec(mainScript, server, 1, target, maxActiveScripts);
-    return pid !== 0;
+    // Pass the target server as an argument when executing the mainScript
+    const pid = ns.exec(mainScript, server, 1, target); // Adjust the thread count as needed
+    return pid !== 0; // Return true if exec was successful, false otherwise
 }
-
