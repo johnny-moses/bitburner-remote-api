@@ -1,3 +1,4 @@
+/* eslint-disable no-constant-condition */
 // Description: Attack deployment manager. This script will automatically launch grow/weaken/hack scripts as needed.
 // Uses grow.js, weaken.js, and hack.js to attack a target server.
 
@@ -41,15 +42,15 @@ export async function main(ns) {
                 // const weakenThreads = calculateWeakenThreads(ns, target, currentSecurity, securityThreshold);
                 deployWeaken(ns, hostServer, target);
 
-                continue; // Move to the next target
+                break; // Move to the next target
             }
 
-
+                // Security is too high, kill all grow and hack processes and deploy weaken scripts
             if (currentSecurity <= securityThreshold && availableFunds >= MaxFunds) {
-                // if the security is below the threshold AND the available funds are greater than the max funds
-                // kill all the grow processes and deploy hacks.
-                killGrow(ns, hostServer, target);
+                killGrowAndHack(ns, hostServer, target);
                 deployHack(ns, hostServer, target);
+
+                break;
             }
 
             try {
