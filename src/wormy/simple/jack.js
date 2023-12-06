@@ -6,7 +6,6 @@
 export async function main(ns) {
     const target = ns.args[0];
     const hostServer = ns.getHostname();
-    const securityThreshold = ns.getServerMinSecurityLevel(target) + 10; // Security buffer
     const moneyThreshold = 0.90; // 75% of max money
     const ramBuffer = 2.5; // Reserve 2.5GB of RAM
 
@@ -21,8 +20,33 @@ export async function main(ns) {
     while (true) {
         try {
             const currentSecurity = ns.getServerSecurityLevel(target);
+            const securityThreshold = ns.getServerMinSecurityLevel(target) + 10;
+            const lowSecurityThreshold = ns.getServerSecurityLevel(target) + 1;
             const currentMoney = ns.getServerMoneyAvailable(target);
             const maxMoney = ns.getServerMaxMoney(target);
+
+            // If security is too high, kill all grow and hack processes and deploy weaken scripts
+            if (currentSecurity >= securityThreshold) {
+                // Kill grow and hack processes
+                killGrowAndHack(ns, hostServer, target);
+                deployWeaken(ns, hostServer, target);
+
+                break;
+
+            // If security is low enough, and target has maxMoney available, kill all grow and weaken processes and deploy hack scripts
+            } else if (currentSecurity <= securityThreshold && currentMoney >= maxMoney) {
+                killGrowAndHack(ns, hostServer, target);
+                deployHack(ns, hostServer, target);
+
+                break;
+
+            // if security is at minimum, and target has maxMoney available, kill all grow and weaken processes and deploy hack scripts
+            } else if (currentSecurity <= lowSecurityThreshold && currentMoney >= maxMoney) {
+                killGrowAndWeaken(ns, hostServer, target);
+                deployHack(ns, hostServer, target);
+
+                break;
+            }
 
             let action;
             if (currentSecurity > securityThreshold) {
@@ -57,6 +81,68 @@ export async function main(ns) {
         } catch (e) {
             ns.tprint(`An error occurred on server ${hostServer}: ${e}`);
             await ns.sleep(1000);
+        }
+    }
+
+    function calculateWeakenThreads(ns, target, currentSecurity, securityThreshold) {
+        const weakenAmount = ns.weakenAnalyze(1); // The amount of security reduced by a single thread
+        const securityDifference = currentSecurity - securityThreshold;
+        return Math.ceil(securityDifference / weakenAmount);
+    }
+
+    function deployWeaken(ns, hostServer, target) {
+        const currentSecurity = ns.getServerSecurityLevel(target);
+        const securityThreshold = ns.getServerMinSecurityLevel(target) + 10;
+        const threadsNeeded = calculateWeakenThreads(ns, target, currentSecurity, securityThreshold);
+
+        const scriptRam = ns.getScriptRam('wormy/simple/scripts/weaken.js', hostServer);
+        let availableRam = ns.getServerMaxRam(hostServer) - ns.getServerUsedRam(hostServer) - ramBuffer;
+        let scriptsToLaunch = Math.min(Math.floor(availableRam / scriptRam), threadsNeeded);
+
+        for (let i = 0; i < scriptsToLaunch; i++) {
+            ns.exec('wormy/simple/scripts/weaken.js', hostServer, 1, target);
+        }
+    }
+
+    function killGrowAndHack(ns, hostServer, target) {
+        // Get all running scripts on the host server
+        const runningScripts = ns.ps(hostServer);
+        for (const process of runningScripts) {
+            if ((process.filename === 'wormy/simple/scripts/grow.js' || process.filename === 'wormy/simple/scripts/hack.js') && process.args.includes(target)) {
+                ns.kill(process.pid); // Kill the process if it's grow or hack targeting the specific server
+            }
+        }
+    }
+
+    function calculateHackThreads(ns, target, currentMoney) {
+        const hackPercent = 0.1; //hacks 10% of the available money
+        const moneyToSteal = currentMoney * hackPercent;
+        const hackChance = ns.hackAnalyzeChance(target);
+        const hackAmount = ns.hackAnalyze(target); // The amount of money stolen by a single thread
+        return Math.ceil((moneyToSteal / hackAmount) / hackChance);
+    }
+
+    function deployHack(ns, hostServer, target) {
+        const currentMoney = ns.getServerMoneyAvailable(target);
+        const maxMoney = ns.getServerMaxMoney(target);
+        const threadsNeeded = calculateHackThreads(ns, target, currentMoney);
+
+        const scriptRam = ns.getScriptRam('wormy/simple/scripts/hack.js', hostServer);
+        let availableRam = ns.getServerMaxRam(hostServer) - ns.getServerUsedRam(hostServer) - ramBuffer;
+        let scriptsToLaunch = Math.min(Math.floor(availableRam / scriptRam), threadsNeeded);
+
+        for (let i = 0; i < scriptsToLaunch; i++) {
+            ns.exec('wormy/simple/scripts/hack.js', hostServer, 1, target);
+        }
+    }
+
+    function killGrowAndWeaken(ns, hostServer, target) {
+        // Get all running scripts on the host server
+        const runningScripts = ns.ps(hostServer);
+        for (const process of runningScripts) {
+            if ((process.filename === 'wormy/simple/scripts/grow.js' || process.filename === 'wormy/simple/scripts/weaken.js') && process.args.includes(target)) {
+                ns.kill(process.pid); // Kill the process if it's grow or weaken targeting the specific server
+            }
         }
     }
 }
