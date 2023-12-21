@@ -1,4 +1,4 @@
-// Description: This script will attempt to hack all servers in the game by using the 'worm' strategy.
+// Description: This script should attempt to hack all servers in the game by using the 'worm' strategy.
 // The worm strategy is to first nuke a server, then deploy a script that will automatically launch grow/weaken/hack scripts as needed.
 // Copies jack.js and supporting scripts to all servers that are connected to the target server, then executes jack.js on each server.
 // Usage: run worm.js [target] yay
