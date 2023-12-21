@@ -43,7 +43,7 @@ export async function main(ns) {
             while (availableRam >= scriptRam) {
                 const pid = ns.exec(`wormy/simple/scripts/${action}.js`, hostServer, 1, target);
                 if (pid === 0) {
-                    ns.tprint(`Failed to start ${action}.js on target: ${target} from server ${hostServer}.`);
+                    // ns.tprint(`Failed to start ${action}.js on target: ${target} from server ${hostServer}.`);
                     break; // Break the loop if unable to start a new process
                 } else {
                     // ns.tprint(`Launched ${action}.js on target: ${target} from server ${hostServer}. PID: ${pid}`);

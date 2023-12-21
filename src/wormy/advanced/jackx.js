@@ -27,6 +27,7 @@ export async function main(ns) {
     while (true) {
 
         for (const target of targets) {
+            ns.tprint(`Processing target: ${target}`)
             // Monitor security level of the target
             const securityThreshold = ns.getServerMinSecurityLevel(target) + 10;  //
             const currentSecurity = ns.getServerSecurityLevel(target);
