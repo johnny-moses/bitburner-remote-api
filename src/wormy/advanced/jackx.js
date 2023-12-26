@@ -1,7 +1,9 @@
 /** @param {NS} ns **/
 export async function main(ns) {
     const homeServer = 'home';
-    const ramBuffer = 0.50; // Reserve 1.25GB of RAM
+    const ramBuffer = 0.50; // Reserve 0.50GB of RAM
+    const mainScript = 'wormy/advanced/jackx.js';
+    const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
     // Pass the target server from the arguments
     let targetServer = ns.args[0];
@@ -13,6 +15,9 @@ export async function main(ns) {
     ns.tprint(`Starting advanced attack script on target server: ${targetServer}`);
 
     const rootServers = getRootServers(ns);
+
+    // Try nuking the targetServer to gain root access
+    tryNuke(ns, targetServer);
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
@@ -40,14 +45,29 @@ export async function main(ns) {
             }
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
             while (availableRam >= scriptRam) {
-                ns.scp(`wormy/advanced/scripts/${action}.js`, homeServer, source);
+                // Copy action script
+                ns.scp(`wormy/advanced/scripts/${action}.js`, source);
                 const pid = ns.exec(`wormy/advanced/scripts/${action}.js`, source, 1, targetServer);
                 if (pid === 0) {
                     break;
                 } else {
                     availableRam -= scriptRam;
                 }
-                await ns.sleep(100);
+                // Copy mainScript and supporting scripts
+                const mainScriptRam = ns.getScriptRam(mainScript, homeServer);
+                if (availableRam >= mainScriptRam) {
+                    ns.scp(mainScript, source);
+                    ns.exec(mainScript, source, mainScriptRam, targetServer);
+                    availableRam -= mainScriptRam;
+                }
+                for (let script of supportingScripts) {
+                    let supportingScriptRam = ns.getScriptRam(script, homeServer);
+                    if (availableRam >= supportingScriptRam) {
+                        ns.scp(script, source);
+                        availableRam -= supportingScriptRam;
+                    }
+                    await ns.sleep(100);
+                }
             }
         }
     }
@@ -65,4 +85,16 @@ function getRootServers(ns) {
     }
 
     return rootServers;
+}
+
+function tryNuke(ns, server) {
+    if (ns.fileExists('BruteSSH.exe', 'home')) ns.brutessh(server);
+    if (ns.fileExists('FTPCrack.exe', 'home')) ns.ftpcrack(server);
+    if (ns.fileExists('relaySMTP.exe', 'home')) ns.relaysmtp(server);
+    if (ns.fileExists('HTTPWorm.exe', 'home')) ns.httpworm(server);
+    if (ns.fileExists('SQLInject.exe', 'home')) ns.sqlinject(server);
+
+    if (ns.getServerNumPortsRequired(server) <= 5) {
+        ns.nuke(server);
+    }
 }
