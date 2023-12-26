@@ -1,174 +1,92 @@
-/* eslint-disable no-constant-condition */
-// Description: Attack deployment manager. This script will automatically launch grow/weaken/hack scripts as needed.
-// Uses grow.js, weaken.js, and hack.js to attack a target server.
-
-// This version will launch batches of scripts at a time to reduce the number of API calls and improve performance.
-
-
-const moneyThreshold = 0.75; // 75% of max money
-const ramBuffer = 12; // Reserve 12GB of RAM
-
 /** @param {NS} ns **/
 export async function main(ns) {
-    const targets = ns.args[0].split(",");
-    const hostServer = ns.getHostname();
+    const homeServer = 'home';
+    const ramBuffer = 2.5; // Reserve 2.5GB of RAM
 
-    if (!targets || targets.length === 0) {
-        ns.tprint("Error: No targets specified. Exiting.");
-        return;
-    }
+    // fill up the list of eligible servers initially
+    let servers = scanAllServers(ns);
+    let eligibleServersList = eligibleServers(ns, servers).slice(0, 3); // Top 3 servers
 
-    if (!ns.fileExists("formulas.exe", "home")) {
-        ns.tprint("Error: formulas.exe is required for this script to run.");
-        return;
-    }
+    ns.tprint(`Starting advanced attack script from home server: ${homeServer}`);
 
-    // Batch job distribution logic for each target
+    // eslint-disable-next-line no-constant-condition
     while (true) {
-
-        for (const target of targets) {
-            ns.tprint(`Processing target: ${target}`)
-            // Monitor security level of the target
-            const securityThreshold = ns.getServerMinSecurityLevel(target) + 10;  //
-            const currentSecurity = ns.getServerSecurityLevel(target);
-            const availableFunds = ns.getServerMoneyAvailable(target);
-            const MaxFunds = ns.getServerMaxMoney(target);
-
-            if (currentSecurity >= securityThreshold) {
-                // Kill grow and hack processes
-                killGrowAndHack(ns, hostServer, target);
-
-                // Deploy weaken scripts
-                // Delete this line if it still works
-                // const weakenThreads = calculateWeakenThreads(ns, target, currentSecurity, securityThreshold);
-                deployWeaken(ns, hostServer, target);
-
-                break; // Move to the next target
-            }
-
-                // Security is too high, kill all grow and hack processes and deploy weaken scripts
-            if (currentSecurity <= securityThreshold && availableFunds >= MaxFunds) {
-                killGrowAndHack(ns, hostServer, target);
-                deployHack(ns, hostServer, target);
-
-                break;
-            }
+        await ns.sleep(1000); // Prevents the game from freezing
+        for (let i = 0; i < eligibleServersList.length; i++) {
+            const target = eligibleServersList[i].name;
+            const securityThreshold = ns.getServerMinSecurityLevel(target) + 10; // Security buffer
+            const moneyThreshold = 0.90; // 90% of max money
 
             try {
+                const currentSecurity = ns.getServerSecurityLevel(target);
                 const currentMoney = ns.getServerMoneyAvailable(target);
                 const maxMoney = ns.getServerMaxMoney(target);
 
-                // Decide the action to take based on current server stats
                 let action;
-                let threadsNeeded;
                 if (currentSecurity > securityThreshold) {
                     action = 'weaken';
-                    threadsNeeded = calculateWeakenThreads(ns, target, currentSecurity, securityThreshold);
                 } else if (currentMoney < maxMoney * moneyThreshold) {
                     action = 'grow';
-                    threadsNeeded = calculateGrowThreads(ns, target, currentMoney, maxMoney);
                 } else {
                     action = 'hack';
-                    threadsNeeded = calculateHackThreads(ns, target, currentMoney);
                 }
-                const scriptRam = ns.getScriptRam(`/${action}.js`, hostServer);
+
+                const scriptRam = ns.getScriptRam(`wormy/simple/scripts/${action}.js`, homeServer);
                 if (scriptRam <= 0) {
-                    ns.tprint(`Error: Script RAM usage is zero or invalid for ${action}.js on server ${hostServer}`);
+                    ns.tprint(`Error: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
                     return;
                 }
 
-                let availableRam = ns.getServerMaxRam(hostServer) - ns.getServerUsedRam(hostServer) - ramBuffer;
-                let scriptsToLaunch = Math.floor(availableRam / scriptRam);
-                scriptsToLaunch = Math.min(scriptsToLaunch, threadsNeeded);
-
-                for (let i = 0; i < scriptsToLaunch; i++) {
-                    const pid = ns.exec(`/wormy/advanced/scripts/${action}.js`, hostServer, 1, target);
+                let availableRam = ns.getServerMaxRam(homeServer) - ns.getServerUsedRam(homeServer) - ramBuffer;
+                while (availableRam >= scriptRam) {
+                    ns.scp(`wormy/simple/scripts/${action}.js`, homeServer, target); // Copies the script to the target server
+                    const pid = ns.exec(`wormy/simple/scripts/${action}.js`, target, 1, target);
                     if (pid === 0) {
-                        ns.tprint(`Failed to start ${action}.js on target: ${target} from server ${hostServer}.`);
                         break;
+                    } else {
+                        availableRam -= scriptRam;
                     }
-                    availableRam -= scriptRam;
+                    await ns.sleep(100);
                 }
-
-                // ns.tprint(`Batch execution complete for ${target}. Moving to next target.`);
-                await ns.sleep(500); // Adjust as needed based on script run times
+                await ns.sleep(5000);
             } catch (e) {
-                ns.tprint(`An error occurred on server ${hostServer}: ${e}`);
+                ns.tprint(`An error occurred on home server ${homeServer}: ${e}`);
                 await ns.sleep(1000);
             }
         }
-        await ns.sleep(5000); // Wait before restarting the loop
-    }
-
-
-    function calculateWeakenThreads(ns, target, currentSecurity, securityThreshold) {
-        const weakenAmount = ns.weakenAnalyze(1); // The amount of security reduced by a single thread
-        const securityDifference = currentSecurity - securityThreshold;
-        return Math.ceil(securityDifference / weakenAmount);
-    }
-
-
-    function calculateGrowThreads(ns, target, currentMoney, maxMoney) {
-        const moneyNeeded = maxMoney * moneyThreshold - currentMoney;
-        const growMultiplier = ns.growthAnalyze(target, moneyNeeded, ns.getServer(target).cores);
-        return Math.ceil(growMultiplier);
-    }
-
-
-    function calculateHackThreads(ns, target, currentMoney) {
-        const hackPercent = 0.1; //hacks 10% of the available money
-        const moneyToSteal = currentMoney * hackPercent;
-        const hackChance = ns.hackAnalyzeChance(target);
-        const hackAmount = ns.hackAnalyze(target); // The amount of money stolen by a single thread
-        return Math.ceil((moneyToSteal / hackAmount) / hackChance);
-    }
-
-    function deployWeaken(ns, hostServer, target) {
-        const currentSecurity = ns.getServerSecurityLevel(target);
-        const securityThreshold = ns.getServerMinSecurityLevel(target) + 10;
-        const threadsNeeded = calculateWeakenThreads(ns, target, currentSecurity, securityThreshold);
-
-        const scriptRam = ns.getScriptRam('wormy/advanced/scripts/weaken.js', hostServer);
-        let availableRam = ns.getServerMaxRam(hostServer) - ns.getServerUsedRam(hostServer) - ramBuffer;
-        let scriptsToLaunch = Math.min(Math.floor(availableRam / scriptRam), threadsNeeded);
-
-        for (let i = 0; i < scriptsToLaunch; i++) {
-            ns.exec('wormy/advanced/scripts/weaken.js', hostServer, 1, target);
-        }
-    }
-
-    function killGrowAndHack(ns, hostServer, target) {
-        // Get all running scripts on the host server
-        const runningScripts = ns.ps(hostServer);
-        for (const process of runningScripts) {
-            if ((process.filename === 'wormy/advanced/scripts/grow.js' || process.filename === 'wormy/advanced/scripts/hack.js') && process.args.includes(target)) {
-                ns.kill(process.pid); // Kill the process if it's grow or hack targeting the specific server
-            }
-        }
-    }
-
-    function killGrow(ns, hostServer, target) {
-        // Get all running scripts on the host server
-        const runningScripts = ns.ps(hostServer);
-        for (const process of runningScripts) {
-            if ((process.filename === 'wormy/advanced/scripts/grow.js') && process.args.includes(target)) {
-                ns.kill(process.pid); // Kill the process if it's grow or hack targeting the specific server
-            }
-        }
-    }
-
-    function deployHack(ns, hostServer, target) {
-        const currentMoney = ns.getServerMoneyAvailable(target);
-        const maxMoney = ns.getServerMaxMoney(target);
-        const threadsNeeded = calculateHackThreads(ns, target, currentMoney);
-
-        const scriptRam = ns.getScriptRam('wormy/advanced/scripts/hack.js', hostServer);
-        let availableRam = ns.getServerMaxRam(hostServer) - ns.getServerUsedRam(hostServer) - ramBuffer;
-        let scriptsToLaunch = Math.min(Math.floor(availableRam / scriptRam), threadsNeeded);
-
-        for (let i = 0; i < scriptsToLaunch; i++) {
-            ns.exec('wormy/advanced/scripts/hack.js', hostServer, 1, target);
-        }
+        // refresh the list after operating on each server in the list
+        servers = scanAllServers(ns);
+        eligibleServersList = eligibleServers(ns, servers).slice(0, 3);
     }
 }
 
+function scanAllServers(ns) {
+    let servers = ['home']; // Start with 'home'
+    for (let i = 0; i < servers.length; ++i) {
+        let newServers = ns.scan(servers[i]);
+        for (let j = 0; j < newServers.length; ++j) {
+            if (!servers.includes(newServers[j])) {
+                servers.push(newServers[j]);
+            }
+        }
+    }
+    return servers;
+}
+
+// Function to check which servers are hackable
+function eligibleServers(ns, servers) {
+    let hackableServers = [];
+    for (let i = 0; i < servers.length; ++i) {
+        let server = servers[i];
+        if (server.includes('home')) continue;
+        if (ns.hasRootAccess(server) && ns.getServerRequiredHackingLevel(server) <= ns.getHackingLevel()) {
+            hackableServers.push({
+                name: server,
+                money: ns.getServerMoneyAvailable(server),
+            });
+        }
+    }
+
+    hackableServers.sort((a, b) => b.money - a.money); // Sort in descending order of money
+    return hackableServers;
+}
