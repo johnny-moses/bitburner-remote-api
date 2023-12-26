@@ -13,7 +13,8 @@ export async function main(ns) {
             hasRootAccess: ns.hasRootAccess(targetServer)
         };
 
-        ns.tprint(serverStatus);
+        ns.clearLog(); // clear the log before printing the status
+        ns.tprint(JSON.stringify(serverStatus, null, 4)); // print the status with indentation
         await ns.sleep(10000); // sleep for 10 seconds before checking again
     }
 }
