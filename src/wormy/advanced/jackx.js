@@ -2,7 +2,6 @@
 export async function main(ns) {
     const homeServer = 'home';
     const ramBuffer = 0.50; // Reserve 0.50GB of RAM
-    const mainScript = 'wormy/advanced/jackx.js';
     const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
     // Pass the target server from the arguments
@@ -15,15 +14,16 @@ export async function main(ns) {
     ns.tprint(`Starting advanced attack script on target server: ${targetServer}`);
 
     const rootServers = getRootServers(ns);
+    rootServers.push('home')
 
     // Try nuking the targetServer to gain root access
     tryNuke(ns, targetServer);
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-        await ns.sleep(1000);
+        await ns.sleep(100);
         for (let source of rootServers) {
-            await ns.sleep(5000);
+            await ns.sleep(100);
             let action;
             const currentSecurity = ns.getServerSecurityLevel(targetServer);
             const currentMoney = ns.getServerMoneyAvailable(targetServer);
@@ -53,13 +53,7 @@ export async function main(ns) {
                 } else {
                     availableRam -= scriptRam;
                 }
-                // Copy mainScript and supporting scripts
-                const mainScriptRam = ns.getScriptRam(mainScript, homeServer);
-                if (availableRam >= mainScriptRam) {
-                    ns.scp(mainScript, source);
-                    ns.exec(mainScript, source, mainScriptRam, targetServer);
-                    availableRam -= mainScriptRam;
-                }
+
                 for (let script of supportingScripts) {
                     let supportingScriptRam = ns.getScriptRam(script, homeServer);
                     if (availableRam >= supportingScriptRam) {
