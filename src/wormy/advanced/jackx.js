@@ -11,8 +11,8 @@ export async function main(ns) {
         return;
     }
 
-    ns.tprint(`Starting advanced attack script on target server: ${targetServer}`);
-
+    ns.tprint(`SUCCESS Starting advanced attack script on target server: ${targetServer}`);
+    ns.formulas.hacking.growPercent()
     const rootServers = getRootServers(ns);
     rootServers.push('home')
 
@@ -40,7 +40,7 @@ export async function main(ns) {
             }
             const scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, homeServer);
             if (scriptRam <= 0) {
-                ns.tprint(`Error: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
+                ns.tprint(`WARN: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
                 return;
             }
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
