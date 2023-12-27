@@ -6,7 +6,7 @@ export async function main(ns) {
     const threads = ns.args[1] || 1;
 
     if (!target) {
-        ns.tprint("Error: No target specified for grow.");
+        ns.tprint("ERROR: No target specified for grow.");
         return;
     }
 
