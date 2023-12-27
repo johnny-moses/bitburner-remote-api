@@ -68,17 +68,26 @@ export async function main(ns) {
 }
 
 // Function checks for all servers that you have root access to
-function getRootServers(ns) {
-    let servers = ns.scan('home');
-    let rootServers = [];
+function getRootServers(ns, startServer = 'home') {
+  let visitedServers = [];
+  let serversToVisit = [startServer];
 
-    for (let server of servers) {
+  while (serversToVisit.length > 0) {
+    let currentServer = serversToVisit.pop();
+
+    if (!visitedServers.includes(currentServer)) {
+      visitedServers.push(currentServer);
+
+      let connectedServers = ns.scan(currentServer);
+      for (let server of connectedServers) {
         if (ns.hasRootAccess(server)) {
-            rootServers.push(server);
+          serversToVisit.push(server);
         }
+      }
     }
+  }
 
-    return rootServers;
+  return visitedServers;
 }
 
 function tryNuke(ns, server) {
