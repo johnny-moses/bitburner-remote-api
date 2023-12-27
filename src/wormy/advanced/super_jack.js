@@ -2,30 +2,35 @@
 export async function main(ns) {
     const homeServer = 'home';
     const ramBuffer = 0.50; // Reserve 0.50GB of RAM
-    const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
     // Pass the target server from the arguments
     let targetServer = ns.args[0];
     if (!targetServer) {
-        ns.tprint('No target server provided');
+        ns.tprint('WARN No target server provided');
         return;
     }
 
-    ns.tprint(`Starting advanced attack script on target server: ${targetServer}`);
+    ns.tprint(`SUCCESS: Starting advanced attack script on target server: ${targetServer}`);
 
     const rootServers = getRootServers(ns);
-    rootServers.push('home')
+    rootServers.push(homeServer);
 
     // Try nuking the targetServer to gain root access
     tryNuke(ns, targetServer);
 
     // eslint-disable-next-line no-constant-condition
+    const formulas = ns.formulas.hacking;
+
     while (true) {
         await ns.sleep(100);
         for (let source of rootServers) {
             await ns.sleep(100);
-            let action;
-            let threads;
+            let action, threads, scriptPath;
+            const player = ns.getPlayer();
+            const server = ns.getServer(targetServer);
+            const maxRam = ns.getServerMaxRam(source);
+            const usedRam = ns.getServerUsedRam(source);
+            const availableRam = maxRam - usedRam;
             const currentSecurity = ns.getServerSecurityLevel(targetServer);
             const currentMoney = ns.getServerMoneyAvailable(targetServer);
             const maxMoney = ns.getServerMaxMoney(targetServer);
@@ -35,39 +40,33 @@ export async function main(ns) {
             if (currentSecurity > securityThreshold) {
                 action = 'weaken';
                 threads = calculateWeakenThreads(ns, targetServer);
+                scriptPath = 'wormy/advanced/scripts/weaken.js';
             } else if (currentMoney < maxMoney * moneyThreshold) {
                 action = 'grow';
                 threads = calculateGrowThreads(ns, targetServer);
+                scriptPath = 'wormy/advanced/scripts/grow.js';
             } else {
                 action = 'hack';
                 threads = 1;  // for hack we'll run single thread as its impact is linear
+                scriptPath = 'wormy/advanced/scripts/hack.js';
             }
 
-            const scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, homeServer);
+            const cores = availableRam / ns.getScriptRam(scriptPath, homeServer);
+
+            const scriptRam = ns.getScriptRam(scriptPath, homeServer);
             if (scriptRam <= 0) {
-                ns.tprint(`Error: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
+                ns.print(`ERROR: Script RAM usage is zero or invalid for ${scriptPath} on home server ${homeServer}`);
                 return;
             }
-            let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
-            while (availableRam >= scriptRam * threads) {
-                // Copy action script
-                ns.scp(`wormy/advanced/scripts/${action}.js`, source);
-                const pid = ns.exec(`wormy/advanced/scripts/${action}.js`, source, threads, targetServer);
-                if (pid === 0) {
-                    break;
-                } else {
-                    availableRam -= scriptRam * threads;
-                }
 
-                for (let script of supportingScripts) {
-                    let supportingScriptRam = ns.getScriptRam(script, homeServer);
-                    if (availableRam >= supportingScriptRam) {
-                        ns.scp(script, source);
-                        availableRam -= supportingScriptRam;
-                    }
-                    await ns.sleep(100);
-                }
+            if ((threads * scriptRam) > availableRam) {
+                ns.print(`WARN: Not enough RAM available on ${source} for ${scriptPath} with ${threads} threads.`);
+                continue;
+
             }
+
+            ns.scp(scriptPath, source);
+            ns.exec(scriptPath, source, threads, targetServer);
         }
     }
 }
@@ -111,7 +110,7 @@ function tryNuke(ns, server) {
 function calculateWeakenThreads(ns, server) {
     const oldSecurity = ns.getServerSecurityLevel(server);
     const newSecurity = ns.getServerMinSecurityLevel(server) + 10;
-    const amountWeakened = ns.getWeakenAmount(server);
+    const amountWeakened = ns.weakenAnalyze(1);
     const threads = Math.ceil((oldSecurity - newSecurity) / amountWeakened);
     return Math.max(1, threads); // at least 1 thread
 }
@@ -120,7 +119,7 @@ function calculateWeakenThreads(ns, server) {
 function calculateGrowThreads(ns, server) {
     const oldMoney = ns.getServerMoneyAvailable(server);
     const newMoney = ns.getServerMaxMoney(server);
-    const growthPercentage = ns.getServerGrowth(server)/100;
+    const growthPercentage = ns.getServerGrowth(server) / 100;
     const threads = Math.ceil(Math.log(newMoney / oldMoney) / Math.log(1 + growthPercentage));
-    return Math.max(1, threads); // at least 1 thread
+    return Math.max(1, threads); // at least 1 thread s
 }
