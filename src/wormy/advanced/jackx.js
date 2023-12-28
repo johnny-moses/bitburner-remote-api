@@ -7,12 +7,11 @@ export async function main(ns) {
     // Pass the target server from the arguments
     let targetServer = ns.args[0];
     if (!targetServer) {
-        ns.tprint('No target server provided');
+        ns.tprint('ERROR: No target server provided');
         return;
     }
 
-    ns.tprint(`SUCCESS Starting advanced attack script on target server: ${targetServer}`);
-    ns.formulas.hacking.growPercent()
+    ns.tprint(`SUCCESS: Starting advanced attack script on target server: ${targetServer}`);
     const rootServers = getRootServers(ns);
     rootServers.push('home')
 
@@ -23,37 +22,44 @@ export async function main(ns) {
     while (true) {
         await ns.sleep(100);
         for (let source of rootServers) {
-            await ns.sleep(100);
-            let action;
-            const currentSecurity = ns.getServerSecurityLevel(targetServer);
-            const currentMoney = ns.getServerMoneyAvailable(targetServer);
-            const maxMoney = ns.getServerMaxMoney(targetServer);
-            const securityThreshold = ns.getServerMinSecurityLevel(targetServer) + 10;
-            const moneyThreshold = 0.90;
-
-            if (currentSecurity > securityThreshold) {
-                action = 'weaken';
-            } else if (currentMoney < maxMoney * moneyThreshold) {
-                action = 'grow';
-            } else {
-                action = 'hack';
-            }
-            const scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, homeServer);
-            if (scriptRam <= 0) {
-                ns.tprint(`WARN: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
-                return;
-            }
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
+            // Initialize scriptRam with some arbitrary large value.
+            let scriptRam = 2;
             while (availableRam >= scriptRam) {
-                // Copy action script
+                await ns.sleep(100);
+                let action;
+                const currentSecurity = ns.getServerSecurityLevel(targetServer);
+                const currentMoney = ns.getServerMoneyAvailable(targetServer);
+                const maxMoney = ns.getServerMaxMoney(targetServer);
+                const securityThreshold = ns.getServerMinSecurityLevel(targetServer) + 10;
+                const moneyThreshold = 0.75;
+
+                if (currentSecurity > securityThreshold) {
+                    action = 'weaken';
+                } else if (currentMoney < maxMoney * moneyThreshold) {
+                    action = 'grow';
+                } else {
+                    action = 'hack';
+                }
+
+                const scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, homeServer);
+                if (scriptRam <= 0) {
+                    ns.tprint(`WARN: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
+                    return;
+                }
+
+                // Copy and execute the action script, reduce available RAM
                 ns.scp(`wormy/advanced/scripts/${action}.js`, source);
                 const pid = ns.exec(`wormy/advanced/scripts/${action}.js`, source, 1, targetServer);
                 if (pid === 0) {
-                    break;
+                    ns.tprint(`ERROR: Unable to start script ${action}.js on server ${source}`);
+                    return;
                 } else {
                     availableRam -= scriptRam;
+                    ns.print(`SUCCESS: Deploying ${action}.js`)
                 }
 
+                // Manage the supporting scripts
                 for (let script of supportingScripts) {
                     let supportingScriptRam = ns.getScriptRam(script, homeServer);
                     if (availableRam >= supportingScriptRam) {
@@ -63,31 +69,32 @@ export async function main(ns) {
                     await ns.sleep(100);
                 }
             }
+            await ns.sleep(100)
         }
     }
 }
 
 // Function checks for all servers that you have root access to
 function getRootServers(ns, startServer = 'home') {
-  let visitedServers = [];
-  let serversToVisit = [startServer];
+    let visitedServers = [];
+    let serversToVisit = [startServer];
 
-  while (serversToVisit.length > 0) {
-    let currentServer = serversToVisit.pop();
+    while (serversToVisit.length > 0) {
+        let currentServer = serversToVisit.pop();
 
-    if (!visitedServers.includes(currentServer)) {
-      visitedServers.push(currentServer);
+        if (!visitedServers.includes(currentServer)) {
+            visitedServers.push(currentServer);
 
-      let connectedServers = ns.scan(currentServer);
-      for (let server of connectedServers) {
-        if (ns.hasRootAccess(server)) {
-          serversToVisit.push(server);
+            let connectedServers = ns.scan(currentServer);
+            for (let server of connectedServers) {
+                if (ns.hasRootAccess(server)) {
+                    serversToVisit.push(server);
+                }
+            }
         }
-      }
     }
-  }
 
-  return visitedServers;
+    return visitedServers;
 }
 
 function tryNuke(ns, server) {
