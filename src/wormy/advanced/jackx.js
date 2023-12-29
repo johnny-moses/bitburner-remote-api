@@ -20,19 +20,25 @@ export async function main(ns) {
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
-        await ns.sleep(100);
+        await ns.sleep(50);
         for (let source of rootServers) {
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
             // Initialize scriptRam with some arbitrary large value.
             let scriptRam = 2;
             while (availableRam >= scriptRam) {
-                await ns.sleep(100);
+                await ns.sleep(50);
                 let action;
                 const currentSecurity = ns.getServerSecurityLevel(targetServer);
                 const currentMoney = ns.getServerMoneyAvailable(targetServer);
                 const maxMoney = ns.getServerMaxMoney(targetServer);
                 const securityThreshold = ns.getServerMinSecurityLevel(targetServer) + 10;
                 const moneyThreshold = 0.75;
+                ns.print('<<<<<<<<   >>>>>>>>')
+                ns.print('WARN: ', currentSecurity)
+                ns.print('WARN: ', securityThreshold)
+                ns.print('WARN: ', maxMoney)
+                ns.print('SUCCESS: ', currentMoney)
+                ns.print('<<<<<<<<   >>>>>>>>')
 
                 if (currentSecurity > securityThreshold) {
                     action = 'weaken';
@@ -45,7 +51,7 @@ export async function main(ns) {
                 const scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, homeServer);
                 if (scriptRam <= 0) {
                     ns.tprint(`WARN: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
-                    return;
+                    continue;
                 }
 
                 // Copy and execute the action script, reduce available RAM
@@ -53,7 +59,7 @@ export async function main(ns) {
                 const pid = ns.exec(`wormy/advanced/scripts/${action}.js`, source, 1, targetServer);
                 if (pid === 0) {
                     ns.tprint(`ERROR: Unable to start script ${action}.js on server ${source}`);
-                    return;
+                    continue;
                 } else {
                     availableRam -= scriptRam;
                     ns.print(`SUCCESS: Deploying ${action}.js`)
@@ -66,10 +72,10 @@ export async function main(ns) {
                         ns.scp(script, source);
                         availableRam -= supportingScriptRam;
                     }
-                    await ns.sleep(100);
+                    await ns.sleep(50);
                 }
             }
-            await ns.sleep(100)
+            await ns.sleep(50)
         }
     }
 }
