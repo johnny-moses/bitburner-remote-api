@@ -1,7 +1,7 @@
 /** @param {NS} ns **/
 export async function main(ns) {
     const homeServer = 'home';
-    const ramBuffer = 0.50; // Reserve 0.50GB of RAM
+    const ramBuffer = 512; // Reserve 512GB of RAM
     const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
     let targetServer = ns.args[0];
@@ -18,18 +18,25 @@ export async function main(ns) {
         rootServers.push('home');
         await ns.sleep(50);
         for (let source of rootServers) {
-            // Try nuking the targetServer to gain root access
-            let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
+            let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source);
+
+            if (availableRam <= ramBuffer) {
+                ns.print(`INFO: Not enough RAM available on ${source}. Skipping for now.`);
+                continue;
+            }
+
             // Initialize scriptRam with some arbitrary large value.
             let scriptRam = 2;
-            while (availableRam >= scriptRam) {
+            while (availableRam - scriptRam >= ramBuffer && (ns.getServerMaxRam(homeServer) - ns.getServerUsedRam(homeServer)) > ramBuffer) {
                 await ns.sleep(50);
+
                 let action;
                 const currentSecurity = ns.getServerSecurityLevel(targetServer);
                 const currentMoney = ns.getServerMoneyAvailable(targetServer);
                 const maxMoney = ns.getServerMaxMoney(targetServer);
                 const securityThreshold = ns.getServerMinSecurityLevel(targetServer) + 10;
                 const moneyThreshold = 0.75;
+
                 ns.print('<<<<<<<<<<<<<<<<<<<<<<<<   ~~   >>>>>>>>>>>>>>>>>>>>>>>>')
                 ns.print(`INFO: ${targetServer} Current Security: `, currentSecurity)
                 ns.print(`INFO: ${targetServer} Security Threshold: `, securityThreshold)
@@ -45,6 +52,19 @@ export async function main(ns) {
                     action = 'hack';
                 }
 
+                // Before exec check for sufficient RAM
+                scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, source);
+                if (availableRam - scriptRam < ramBuffer) {
+                    ns.print(`ERROR: Unable to start script ${action}.js on server ${source} due to low RAM`);
+                    break;
+                }
+
+                const homeRamAvailable = ns.getServerMaxRam(homeServer) - ns.getServerUsedRam(homeServer);
+                if (homeRamAvailable - scriptRam < ramBuffer) {
+                    ns.print(`ERROR: Unable to start script ${action}.js on home server due to low RAM`);
+                    break;
+                }
+
                 const pid = ns.exec(`wormy/advanced/scripts/${action}.js`, source, 1, targetServer);
                 if (pid === 0) {
                     ns.print(`ERROR: Unable to start script ${action}.js on server ${source}`);
@@ -57,10 +77,17 @@ export async function main(ns) {
                 // Manage the supporting scripts
                 for (let script of supportingScripts) {
                     let supportingScriptRam = ns.getScriptRam(script, homeServer);
-                    if (availableRam >= supportingScriptRam) {
+                    availableRam -= supportingScriptRam;
+
+                    if (availableRam - supportingScriptRam < ramBuffer) {
+                        break;
+                    } else if (homeRamAvailable - supportingScriptRam < ramBuffer) {
+                        ns.print(`ERROR: Unable to start support script ${script} on home server due to low RAM`);
+                        break;
+                    } else {
                         ns.scp(script, source);
-                        availableRam -= supportingScriptRam;
                     }
+
                     await ns.sleep(50);
                 }
             }
@@ -88,6 +115,5 @@ function getRootServers(ns, startServer = 'home') {
             }
         }
     }
-
     return visitedServers;
 }
