@@ -1,8 +1,8 @@
 /** @param {NS} ns **/
 export async function main(ns) {
-    var refreshInterval = 10; // Refresh interval in seconds
+    var refreshInterval = 10;
     const topServers = getTopServers(ns, 5);
-    ns.print("Top servers: " + JSON.stringify(topServers)); // Debugging line to check the server names
+    ns.print("Top servers: " + JSON.stringify(topServers));
 
     if (topServers.length === 0) {
         ns.toast("No top servers found", "error");
@@ -34,10 +34,10 @@ export async function main(ns) {
             ns.print(`Required Hacking Level: ${hackingLevel}`);
             ns.print(`Server Growth Rate: ${growthRate}`);
         }
-        // Countdown loop for refresh interval
+
         for (let i = refreshInterval; i > 0; i--) {
             ns.print(`Refreshing all servers in ${i} seconds...`);
-            await ns.sleep(1000); // Wait for 1 second
+            await ns.sleep(1000);
         }
     }
 }
