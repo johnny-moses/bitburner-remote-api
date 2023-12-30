@@ -4,7 +4,6 @@ export async function main(ns) {
     const ramBuffer = 0.50; // Reserve 0.50GB of RAM
     const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
-    // Pass the target server from the arguments
     let targetServer = ns.args[0];
     if (!targetServer) {
         ns.tprint('ERROR: No target server provided');
@@ -12,16 +11,16 @@ export async function main(ns) {
     }
 
     ns.tprint(`SUCCESS: Starting advanced attack script on target server: ${targetServer}`);
-    const rootServers = getRootServers(ns);
-    rootServers.push('home')
 
-    // Try nuking the targetServer to gain root access
-    tryNuke(ns, targetServer);
 
     // eslint-disable-next-line no-constant-condition
     while (true) {
+        const rootServers = getRootServers(ns);
+        rootServers.push('home');
         await ns.sleep(50);
         for (let source of rootServers) {
+            // Try nuking the targetServer to gain root access
+            tryNuke(ns, source);
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
             // Initialize scriptRam with some arbitrary large value.
             let scriptRam = 2;
@@ -33,12 +32,12 @@ export async function main(ns) {
                 const maxMoney = ns.getServerMaxMoney(targetServer);
                 const securityThreshold = ns.getServerMinSecurityLevel(targetServer) + 10;
                 const moneyThreshold = 0.75;
-                ns.print('<<<<<<<<   >>>>>>>>')
-                ns.print('WARN: ', currentSecurity)
-                ns.print('WARN: ', securityThreshold)
-                ns.print('WARN: ', maxMoney)
-                ns.print('SUCCESS: ', currentMoney)
-                ns.print('<<<<<<<<   >>>>>>>>')
+                ns.print('<<<<<<<<<<<<<<<<<<<<<<<<   ~~   >>>>>>>>>>>>>>>>>>>>>>>>')
+                ns.print(`INFO: ${targetServer} Current Security: `, currentSecurity)
+                ns.print(`INFO: ${targetServer} Security Threshold: `, securityThreshold)
+                ns.print(`INFO: ${targetServer} Max Money: `, maxMoney)
+                ns.print(`INFO: ${targetServer} Current Money: `, currentMoney)
+                ns.print('<<<<<<<<<<<<<<<<<<<<<<<<   ~~   >>>>>>>>>>>>>>>>>>>>>>>>')
 
                 if (currentSecurity > securityThreshold) {
                     action = 'weaken';
@@ -50,7 +49,7 @@ export async function main(ns) {
 
                 const scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, homeServer);
                 if (scriptRam <= 0) {
-                    ns.tprint(`WARN: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
+                    ns.print(`WARN: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
                     continue;
                 }
 
@@ -58,7 +57,7 @@ export async function main(ns) {
                 ns.scp(`wormy/advanced/scripts/${action}.js`, source);
                 const pid = ns.exec(`wormy/advanced/scripts/${action}.js`, source, 1, targetServer);
                 if (pid === 0) {
-                    ns.tprint(`ERROR: Unable to start script ${action}.js on server ${source}`);
+                    ns.print(`ERROR: Unable to start script ${action}.js on server ${source}`);
                     continue;
                 } else {
                     availableRam -= scriptRam;
@@ -104,13 +103,30 @@ function getRootServers(ns, startServer = 'home') {
 }
 
 function tryNuke(ns, server) {
-    if (ns.fileExists('BruteSSH.exe', 'home')) ns.brutessh(server);
-    if (ns.fileExists('FTPCrack.exe', 'home')) ns.ftpcrack(server);
-    if (ns.fileExists('relaySMTP.exe', 'home')) ns.relaysmtp(server);
-    if (ns.fileExists('HTTPWorm.exe', 'home')) ns.httpworm(server);
-    if (ns.fileExists('SQLInject.exe', 'home')) ns.sqlinject(server);
+    let portsRequired = ns.getServerNumPortsRequired(server)
+    let portsOpened = 0;
+    if (ns.fileExists('BruteSSH.exe', 'home')) {
+        ns.brutessh(server);
+        portsOpened++;
+    }
+    if (ns.fileExists('FTPCrack.exe', 'home')) {
+        ns.ftpcrack(server);
+        portsOpened++;
+    }
+    if (ns.fileExists('relaySMTP.exe', 'home')) {
+        ns.relaysmtp(server);
+        portsOpened++;
+    }
+    if (ns.fileExists('HTTPWorm.exe', 'home')) {
+        ns.httpworm(server);
+        portsOpened++;
+    }
+    if (ns.fileExists('SQLInject.exe', 'home')) {
+        ns.sqlinject(server);
+        portsOpened++;
+    }
 
-    if (ns.getServerNumPortsRequired(server) <= 5) {
+    if (portsRequired <= portsOpened) {
         ns.nuke(server);
     }
 }
