@@ -1,41 +1,46 @@
 /** @param {NS} ns **/
 export async function main(ns) {
-    const programs = ["BruteSSH.exe", "FTPCrack.exe", "relaySMTP.exe", "HTTPWorm.exe", "SQLInject.exe"];
-    const filesToCopy = ["wormy/advanced/scripts/hack.js", "wormy/advanced/scripts/grow.js", "wormy/advanced/scripts/weaken.js"]; // Add the names of your files here
-    let serversScanned = [];
+    const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
-    async function scanAndRoot(server) {
-        // Avoid re-scanning the same server
-        if (serversScanned.includes(server)) {
-            return;
-        }
-        serversScanned.push(server);
+    while (true) {
+        let servers = ns.scan();
+        for (let i = 0; i < servers.length; i++) {
+            let portsRequired = ns.getServerNumPortsRequired(servers[i])
+            let portsOpened = 0;
+            if (ns.hasRootAccess(servers[i])) {
+                continue;
+            }
+            if (ns.fileExists('BruteSSH.exe', 'home')) {
+                ns.brutessh(servers[i]);
+                portsOpened++;
+            }
+            if (ns.fileExists('FTPCrack.exe', 'home')) {
+                ns.ftpcrack(servers[i]);
+                portsOpened++;
+            }
+            if (ns.fileExists('relaySMTP.exe', 'home')) {
+                ns.relaysmtp(servers[i]);
+                portsOpened++;
+            }
+            if (ns.fileExists('HTTPWorm.exe', 'home')) {
+                ns.httpworm(servers[i]);
+                portsOpened++;
+            }
+            if (ns.fileExists('SQLInject.exe', 'home')) {
+                ns.sqlinject(servers[i]);
+                portsOpened++;
+            }
 
-        // Open ports if possible
-        if (ns.fileExists(programs[0], "home")) ns.brutessh(server);
-        if (ns.fileExists(programs[1], "home")) ns.ftpcrack(server);
-        if (ns.fileExists(programs[2], "home")) ns.relaysmtp(server);
-        if (ns.fileExists(programs[3], "home")) ns.httpworm(server);
-        if (ns.fileExists(programs[4], "home")) ns.sqlinject(server);
-
-        // Nuke the server if we have enough ports open
-        if (ns.getServerRequiredHackingLevel(server) <= ns.getHackingLevel() && ns.getServerNumPortsRequired(server) <= ns.getServer().openPortCount) {
-            ns.nuke(server);
-            ns.tprint(`Gained root access to ${server}`);
-
-            // Copy files to the server
-            if (ns.hasRootAccess(server)) {
-                await ns.scp(filesToCopy, "home", server);
-                ns.tprint(`Copied files to ${server}`);
+            if (portsRequired <= portsOpened) {
+                ns.nuke(servers[i]);
+                for (let script of supportingScripts) {
+                    ns.scp(script, servers[i])
+                    ns.tprint(`Copied ${script} to ${servers[i]}`, 'pink')
+                    await ns.sleep(20)
+                }
+                ns.tprint(`SUCCESS: Root Access gained on ${servers[i]}`)
             }
         }
-
-        // Recursively scan for more servers
-        let connectedServers = ns.scan(server);
-        for (let i = 0; i < connectedServers.length; i++) {
-            await scanAndRoot(connectedServers[i]);
-        }
+        await ns.sleep(500)
     }
-
-    await scanAndRoot("home");
 }
