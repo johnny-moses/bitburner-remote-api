@@ -8,6 +8,9 @@ export async function main(ns) {
 async function runScriptOnServers(ns, servers, scriptToRun) {
     for(let i = 0; i < servers.length; i++) {
         if (!ns.isRunning(scriptToRun, 'home', servers[i])) {
+            if (servers[i] === 'home') {
+                continue;
+            }
             if (ns.getServerRequiredHackingLevel(servers[i]) <= ns.getHackingLevel() && ns.hasRootAccess(servers[i])) {
                 ns.exec(scriptToRun, 'home', 1, servers[i])
                 ns.tprint(`SUCCESS: Deployed JACKX on ${servers[i]}`);
@@ -18,7 +21,7 @@ async function runScriptOnServers(ns, servers, scriptToRun) {
                 await runScriptOnServers(ns, connectedServers, scriptToRun);
             }
         } else {
-            continue;
+            ns.print(`JACKX already running on ${servers[i]}`);
         }
     }
 }
