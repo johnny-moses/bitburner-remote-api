@@ -1,3 +1,4 @@
+// Work in progress script for calculating and deploying batches
 /** @param {NS} ns **/
 export async function main(ns) {
     const homeServer = 'home';
