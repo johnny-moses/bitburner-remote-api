@@ -12,7 +12,6 @@ export async function main(ns) {
 
     ns.tprint(`SUCCESS: Starting advanced attack script on target server: ${targetServer}`);
 
-
     // eslint-disable-next-line no-constant-condition
     while (true) {
         const rootServers = getRootServers(ns);
@@ -20,7 +19,6 @@ export async function main(ns) {
         await ns.sleep(50);
         for (let source of rootServers) {
             // Try nuking the targetServer to gain root access
-            tryNuke(ns, source);
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source) - ramBuffer;
             // Initialize scriptRam with some arbitrary large value.
             let scriptRam = 2;
@@ -47,14 +45,6 @@ export async function main(ns) {
                     action = 'hack';
                 }
 
-                const scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, homeServer);
-                if (scriptRam <= 0) {
-                    ns.print(`WARN: Script RAM usage is zero or invalid for ${action}.js on home server ${homeServer}`);
-                    continue;
-                }
-
-                // Copy and execute the action script, reduce available RAM
-                ns.scp(`wormy/advanced/scripts/${action}.js`, source);
                 const pid = ns.exec(`wormy/advanced/scripts/${action}.js`, source, 1, targetServer);
                 if (pid === 0) {
                     ns.print(`ERROR: Unable to start script ${action}.js on server ${source}`);
@@ -100,33 +90,4 @@ function getRootServers(ns, startServer = 'home') {
     }
 
     return visitedServers;
-}
-
-function tryNuke(ns, server) {
-    let portsRequired = ns.getServerNumPortsRequired(server)
-    let portsOpened = 0;
-    if (ns.fileExists('BruteSSH.exe', 'home')) {
-        ns.brutessh(server);
-        portsOpened++;
-    }
-    if (ns.fileExists('FTPCrack.exe', 'home')) {
-        ns.ftpcrack(server);
-        portsOpened++;
-    }
-    if (ns.fileExists('relaySMTP.exe', 'home')) {
-        ns.relaysmtp(server);
-        portsOpened++;
-    }
-    if (ns.fileExists('HTTPWorm.exe', 'home')) {
-        ns.httpworm(server);
-        portsOpened++;
-    }
-    if (ns.fileExists('SQLInject.exe', 'home')) {
-        ns.sqlinject(server);
-        portsOpened++;
-    }
-
-    if (portsRequired <= portsOpened) {
-        ns.nuke(server);
-    }
 }
