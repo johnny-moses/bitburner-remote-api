@@ -16,7 +16,7 @@ export async function main(ns) {
     while (true) {
         const rootServers = getRootServers(ns);
         rootServers.unshift(homeServer) // Move homeServer to the beginning of the array for prioritized processing
-        await ns.sleep(50);
+        await ns.sleep(20);
 
         for (let source of rootServers) {
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source);
@@ -27,9 +27,9 @@ export async function main(ns) {
             }
 
             // Initialize scriptRam with some arbitrary large value.
-            let scriptRam = 2;
+            let scriptRam = 1.75;
             while (availableRam - scriptRam >= 0) { // Just checking if we have enough RAM to run the script.
-                await ns.sleep(50);
+                await ns.sleep(20);
 
                 let action;
                 const currentSecurity = ns.getServerSecurityLevel(targetServer);
@@ -79,10 +79,10 @@ export async function main(ns) {
                         ns.scp(script, source);
                         availableRam -= supportingScriptRam;
                     }
-                    await ns.sleep(50);
+                    await ns.sleep(20);
                 }
             }
-            await ns.sleep(50)
+            await ns.sleep(20)
         }
     }
 }

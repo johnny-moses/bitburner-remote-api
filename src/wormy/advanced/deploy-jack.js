@@ -8,7 +8,7 @@ export async function main(ns) {
         await runScriptOnServers(ns, servers, scriptToRun);
 
         // Sleep before starting another round of deploying
-        ns.tprint(`Completed a round of server script deployments. Starting again in 1 minute.`);
+        ns.print(`Completed a round of server script deployments. Starting again in 1 minute.`);
         await ns.sleep(60000);
     }
 }
