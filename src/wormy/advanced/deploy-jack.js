@@ -1,29 +1,15 @@
 /** @param {NS} ns **/
 export async function main(ns) {
-    // Function to recursively scan the network
-    function scanNetwork(server, visited) {
-        visited.add(server);
-        let connections = ns.scan(server);
-        for (const target of connections) {
-            if (!visited.has(target)) {
-                scanNetwork(target, visited);
+    const scriptToRun = 'wormy/advanced/jackx.js';
+    while (true) {
+        let servers = ns.scan();
+        for (let i = 0; i < servers.length; i++) {
+            if (ns.getServerRequiredHackingLevel(servers[i]) <= ns.getHackingLevel() && ns.hasRootAccess(servers[i])) {
+                ns.exec(scriptToRun, 'home', 1, servers[i])
+                ns.tprint(`SUCCESS: Deployed JACKX on ${servers[i]}`)
+                await ns.sleep(50)
             }
         }
-    }
-
-    // Set the script to run on each server
-    const scriptToRun = 'wormy/advanced/jackx.js';
-
-    // Scan the network
-    let allServers = new Set();
-    scanNetwork('home', allServers);
-
-    // Run the script on each server
-    for (const server of allServers) {
-        if (ns.serverExists(server) && server !== 'home') {
-            await ns.scp(scriptToRun, 'home', server);
-            ns.print(`SUCCESS: Deploying JACKX.js on: ${server}`)
-            ns.exec(scriptToRun, 'home', 1, server);
-        }
+        return;
     }
 }
