@@ -1,6 +1,7 @@
 /** @param {NS} ns **/
 export async function main(ns) {
-    const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
+    const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js',
+        'wormy/advanced/scripts/weaken.js', 'wormy/advanced/jackx.js'];
 
     while (true) {
         let servers = ns.scan();
