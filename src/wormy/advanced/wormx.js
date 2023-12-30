@@ -62,9 +62,9 @@ async function processServer(ns, server, supportingScripts) {
         for (let script of supportingScripts) {
             ns.scp(script, server);
             ns.print(`Copied ${script} to ${server}`);
-            await ns.sleep(20);
+            await ns.sleep(500);
         }
         ns.tprint(`SUCCESS: Root Access gained on ${server}`);
     }
-    await ns.sleep(500); // little sleep after processing each server
+    await ns.sleep(1500);
 }

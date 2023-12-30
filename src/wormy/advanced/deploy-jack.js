@@ -1,12 +1,20 @@
 /** @param {NS} ns **/
 export async function main(ns) {
     const scriptToRun = 'wormy/advanced/jackx.js';
-    let servers = ns.scan('home');
-    await runScriptOnServers(ns, servers, scriptToRun);
+
+    // Outermost loop to keep the script running indefinitely
+    while (true) {
+        let servers = ns.scan('home');
+        await runScriptOnServers(ns, servers, scriptToRun);
+
+        // Sleep before starting another round of deploying
+        ns.tprint(`Completed a round of server script deployments. Starting again in 1 minute.`);
+        await ns.sleep(60000);
+    }
 }
 
 async function runScriptOnServers(ns, servers, scriptToRun) {
-    for(let i = 0; i < servers.length; i++) {
+    for (let i = 0; i < servers.length; i++) {
         if (!ns.isRunning(scriptToRun, 'home', servers[i])) {
             if (servers[i] === 'home') {
                 continue;
