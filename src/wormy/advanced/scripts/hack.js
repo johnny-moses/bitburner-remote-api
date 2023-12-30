@@ -1,4 +1,4 @@
-// Made to be deployed by jack.js to a target server
+// Made to be deployed by src/wormy/advanced/jackx.js to a target server
 
 /** @param {NS} ns **/
 export async function main(ns) {
