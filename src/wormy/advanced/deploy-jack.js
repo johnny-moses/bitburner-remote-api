@@ -20,6 +20,11 @@ async function runScriptOnServers(ns, servers, scriptToRun) {
                 continue;
             }
             if (ns.getServerRequiredHackingLevel(servers[i]) <= ns.getHackingLevel() && ns.hasRootAccess(servers[i])) {
+                if(ns.getServerMaxMoney(servers[i]) === 0){
+                    ns.tprint(`Skipping ${servers[i]} because it has no money`);
+                    continue;
+                }
+
                 ns.exec(scriptToRun, 'home', 1, servers[i])
                 ns.tprint(`SUCCESS: Deployed JACKX on ${servers[i]}`);
                 await ns.sleep(50)
