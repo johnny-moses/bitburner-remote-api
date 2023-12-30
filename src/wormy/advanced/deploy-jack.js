@@ -21,7 +21,7 @@ async function runScriptOnServers(ns, servers, scriptToRun) {
             }
             if (ns.getServerRequiredHackingLevel(servers[i]) <= ns.getHackingLevel() && ns.hasRootAccess(servers[i])) {
                 if(ns.getServerMaxMoney(servers[i]) === 0){
-                    ns.tprint(`Skipping ${servers[i]} because it has no money`);
+                    ns.print(`Skipping ${servers[i]} because it has no money`);
                     continue;
                 }
 
