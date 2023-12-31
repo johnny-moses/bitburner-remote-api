@@ -1,7 +1,7 @@
 /** @param {NS} ns **/
 export async function main(ns) {
     const homeServer = 'home';
-    const ramBuffer = 64; // Reserve 512GB of RAM
+    const ramBuffer = 512; // Reserve 512GB of RAM
     const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
     let targetServer = ns.args[0];
@@ -16,20 +16,20 @@ export async function main(ns) {
     while (true) {
         const rootServers = getRootServers(ns);
         rootServers.unshift(homeServer) // Move homeServer to the beginning of the array for prioritized processing
-        await ns.sleep(20);
+        await ns.sleep(100);
 
         for (let source of rootServers) {
             let availableRam = ns.getServerMaxRam(source) - ns.getServerUsedRam(source);
 
-            if (availableRam <= ramBuffer && source === homeServer) {
+            if (availableRam <= 0 && source === homeServer) {
                 ns.print(`INFO: Not enough RAM available on ${source}. Skipping for now.`);
                 continue;
             }
 
             // Initialize scriptRam with some arbitrary large value.
             let scriptRam = 1.75;
-            while (availableRam - scriptRam >= 0) { // Just checking if we have enough RAM to run the script.
-                await ns.sleep(20);
+            while (availableRam - scriptRam >= ramBuffer) { // Just checking if we have enough RAM to run the script.
+                await ns.sleep(100);
 
                 let action;
                 const currentSecurity = ns.getServerSecurityLevel(targetServer);
@@ -56,7 +56,7 @@ export async function main(ns) {
                 // Before exec check for sufficient RAM
                 scriptRam = ns.getScriptRam(`wormy/advanced/scripts/${action}.js`, source);
 
-                if (availableRam - scriptRam < ramBuffer && source === homeServer) {
+                if (availableRam - scriptRam < 0 && source === homeServer) {
                     ns.print(`ERROR: Unable to start script ${action}.js on home server due to low RAM`);
                     break;
                 }
@@ -66,23 +66,23 @@ export async function main(ns) {
                     ns.print(`ERROR: Unable to start script ${action}.js on server ${source}`);
                     continue;
                 } else {
-                    availableRam -= scriptRam;
+                    availableRam -= (scriptRam + ramBuffer);
                     ns.print(`SUCCESS: Deploying ${action}.js`)
                 }
 
                 // Manage the supporting scripts
                 for (let script of supportingScripts) {
                     let supportingScriptRam = ns.getScriptRam(script, homeServer);
-                    if (availableRam - supportingScriptRam < 0) {
-                        break;
+                    if (availableRam - supportingScriptRam < ramBuffer) {
+                        continue;
                     } else {
-                        ns.scp(script, source);
                         availableRam -= supportingScriptRam;
+                        ns.scp(script, source);
                     }
-                    await ns.sleep(20);
+                    await ns.sleep(50);
                 }
             }
-            await ns.sleep(20)
+            await ns.sleep(100)
         }
     }
 }
