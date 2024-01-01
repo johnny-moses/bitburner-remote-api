@@ -1,7 +1,7 @@
 /** @param {NS} ns **/
 export async function main(ns) {
     const homeServer = 'home';
-    const ramBuffer = 512; // Reserve 512GB of RAM
+    const ramBuffer = 0; // Reserve 512GB of RAM
     const supportingScripts = ['wormy/advanced/scripts/hack.js', 'wormy/advanced/scripts/grow.js', 'wormy/advanced/scripts/weaken.js'];
 
     let targetServer = ns.args[0];
@@ -45,6 +45,18 @@ export async function main(ns) {
                 ns.print(`INFO: ${targetServer} Current Money: `, currentMoney)
                 ns.print('<<<<<<<<<<<<<<<<<<<<<<<<   ~~   >>>>>>>>>>>>>>>>>>>>>>>>')
 
+                // Manage the supporting scripts
+                for (let script of supportingScripts) {
+                    let supportingScriptRam = ns.getScriptRam(script, homeServer);
+                    if (availableRam - supportingScriptRam < ramBuffer) {
+                        continue;
+                    } else {
+                        availableRam -= supportingScriptRam;
+                        ns.scp(script, source);
+                    }
+                    await ns.sleep(50);
+                }
+
                 if (currentSecurity > securityThreshold) {
                     action = 'weaken';
                 } else if (currentMoney < maxMoney * moneyThreshold) {
@@ -70,17 +82,6 @@ export async function main(ns) {
                     ns.print(`SUCCESS: Deploying ${action}.js`)
                 }
 
-                // Manage the supporting scripts
-                for (let script of supportingScripts) {
-                    let supportingScriptRam = ns.getScriptRam(script, homeServer);
-                    if (availableRam - supportingScriptRam < ramBuffer) {
-                        continue;
-                    } else {
-                        availableRam -= supportingScriptRam;
-                        ns.scp(script, source);
-                    }
-                    await ns.sleep(50);
-                }
             }
             await ns.sleep(100)
         }
